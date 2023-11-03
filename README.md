@@ -6,4 +6,4 @@
 - Next to *Import source* click *Directory...* and select *"Project"* folder (Name of the STM32 project)
 - "Finish"
 
-1. Re-Generate code from Project.ioc after every *git pull*
+Note: Re-Generate code from Project.ioc after every *git pull*
