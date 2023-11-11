@@ -31,7 +31,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define BUFSIZE		64000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,7 +50,7 @@ DMA_HandleTypeDef hdma_dfsdm1_flt0;
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
-
+int32_t recBuf[BUFSIZE];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -69,6 +69,21 @@ static void MX_TIM2_Init(void);
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	if(GPIO_Pin == TALKBUT_Pin){
 		HAL_GPIO_TogglePin(YLED_GPIO_Port, YLED_Pin);
+	}
+	if(GPIO_Pin == CHANNELBUT_Pin){
+		HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBuf, BUFSIZE);
+	}
+}
+
+void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
+	if(hdfsdm_filter == &hdfsdm1_filter0){
+
+	}
+}
+
+void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
+	if(hdfsdm_filter == &hdfsdm1_filter0){
+
 	}
 }
 /* USER CODE END 0 */
