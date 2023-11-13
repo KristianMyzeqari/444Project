@@ -51,6 +51,10 @@ TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 int32_t recBuf[BUFSIZE];
+int32_t playBuf[BUFSIZE];
+
+int dmaRecBuffHalfCplt = 0;
+int dmaRecBuffCplt = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,6 +74,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	if(GPIO_Pin == TALKBUT_Pin){
 		HAL_GPIO_TogglePin(YLED_GPIO_Port, YLED_Pin);
 	}
+
 	if(GPIO_Pin == CHANNELBUT_Pin){
 		HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBuf, BUFSIZE);
 	}
@@ -77,13 +82,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
 	if(hdfsdm_filter == &hdfsdm1_filter0){
-
+		dmaRecBuffHalfCplt = 1;
 	}
 }
 
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
 	if(hdfsdm_filter == &hdfsdm1_filter0){
-
+		dmaRecBuffCplt = 1;
 	}
 }
 /* USER CODE END 0 */
@@ -129,7 +134,54 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	  if(dmaRecBuffHalfCplt == 1){
+		  for(int i = 0; i < AUDIO_REC/2; i++){
 
+			  recBuf[i] = recBuf[i] >> 8;
+
+		  	  if(recBuf[i] < minVal){
+		  		  minVal = recBuf[i];
+		  	  }
+		  	  if(recBuf[i] > maxVal){
+		  		  maxVal = recBuf[i];
+		  	  }
+		  }
+
+		  if(minVal < 0) minVal = -1 * minVal;
+
+		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
+
+		  for(int j = 0; j < AUDIO_REC/2; j++){
+			  recBuf[j] = recBuf[j] + minVal;
+			  playBuf[j] = temp * recBuf[j];
+
+		  }
+
+		  dmaRecBuffHalfCplt = 0;
+	  }
+	  if(dmaRecBuffHalfCplt == 1){
+		  for(int i = 0; i < AUDIO_REC/2; i++){
+			  recBuf[i] = recBuf[i] >> 8;
+
+	  		  if(recBuf[i] < minVal){
+	  			  minVal = recBuf[i];
+	  		  }
+	  		  if(recBuf[i] > maxVal){
+	  			  maxVal = recBuf[i];
+	  		  }
+		  }
+
+		  if(minVal < 0) minVal = -1 * minVal;
+
+		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
+
+		  for(int j = 0; j < AUDIO_REC/2; j++){
+			  recBuf[j] = recBuf[j] + minVal;
+			  playBuf[j] = temp * recBuf[j];
+		  }
+
+		  dmaRecBuffHalfCplt = 0;
+	  }
     /* USER CODE BEGIN 3 */
 	  //HAL_GPIO_TogglePin(YLED_GPIO_Port, YLED_Pin);
 	  //HAL_Delay(1000);
