@@ -31,7 +31,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define BUFSIZE		64000
+#define BUFSIZE		32000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,11 +50,22 @@ DMA_HandleTypeDef hdma_dfsdm1_flt0;
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
+//Recording buffers
 int32_t recBuf[BUFSIZE];
-int32_t playBuf[BUFSIZE];
+int32_t procBuf[BUFSIZE];
+uint32_t playBuf[BUFSIZE];
 
+//Computation values
+int32_t maxVal = INT32_MIN;
+int32_t minVal = INT32_MAX;
+float temp;
+
+//Flags
 int dmaRecBuffHalfCplt = 0;
 int dmaRecBuffCplt = 0;
+int hasRecorded = 0;
+int isPlaying = 0;
+int isRecording = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -72,23 +83,65 @@ static void MX_TIM2_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	if(GPIO_Pin == TALKBUT_Pin){
-		HAL_GPIO_TogglePin(YLED_GPIO_Port, YLED_Pin);
+		HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+		isPlaying = 1;
 	}
 
 	if(GPIO_Pin == CHANNELBUT_Pin){
 		HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBuf, BUFSIZE);
+		hasRecorded = 1;
 	}
 }
 
 void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
+	//HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+	memcpy(procBuf, recBuf, BUFSIZE);
 	if(hdfsdm_filter == &hdfsdm1_filter0){
-		dmaRecBuffHalfCplt = 1;
+		for(int i = 0; i < BUFSIZE/2; i++){
+
+			procBuf[i] = procBuf[i] >> 8;
+
+			if(procBuf[i] < minVal){
+				minVal = recBuf[i];
+			}
+			if(procBuf[i] > maxVal){
+				maxVal = recBuf[i];
+			}
+		}
+
+		if(minVal < 0) minVal = -1 * minVal;
+
+		temp = (float)((float)4095/((float)maxVal+(float)minVal));
+
+		for(int j = 0; j < BUFSIZE/2; j++){
+			procBuf[j] = procBuf[j] + minVal;
+			playBuf[j] = temp * procBuf[j];
+		}
 	}
 }
 
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
 	if(hdfsdm_filter == &hdfsdm1_filter0){
-		dmaRecBuffCplt = 1;
+		for(int i = BUFSIZE/2; i < BUFSIZE; i++){
+
+			recBuf[i] = recBuf[i] >> 8;
+
+			if(recBuf[i] < minVal){
+				minVal = recBuf[i];
+			}
+			if(recBuf[i] > maxVal){
+				maxVal = recBuf[i];
+			}
+		}
+
+		if(minVal < 0) minVal = -1 * minVal;
+
+		temp = (float)((float)4095/((float)maxVal+(float)minVal));
+
+		for(int j = BUFSIZE/2; j < BUFSIZE; j++){
+			recBuf[j] = recBuf[j] + minVal;
+			playBuf[j] = temp * recBuf[j];
+		}
 	}
 }
 /* USER CODE END 0 */
@@ -126,7 +179,7 @@ int main(void)
   MX_DFSDM1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_TIM_Base_Start_IT(&htim2);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -134,57 +187,59 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  if(dmaRecBuffHalfCplt == 1){
-		  for(int i = 0; i < AUDIO_REC/2; i++){
 
-			  recBuf[i] = recBuf[i] >> 8;
-
-		  	  if(recBuf[i] < minVal){
-		  		  minVal = recBuf[i];
-		  	  }
-		  	  if(recBuf[i] > maxVal){
-		  		  maxVal = recBuf[i];
-		  	  }
-		  }
-
-		  if(minVal < 0) minVal = -1 * minVal;
-
-		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
-
-		  for(int j = 0; j < AUDIO_REC/2; j++){
-			  recBuf[j] = recBuf[j] + minVal;
-			  playBuf[j] = temp * recBuf[j];
-
-		  }
-
-		  dmaRecBuffHalfCplt = 0;
-	  }
-	  if(dmaRecBuffHalfCplt == 1){
-		  for(int i = 0; i < AUDIO_REC/2; i++){
-			  recBuf[i] = recBuf[i] >> 8;
-
-	  		  if(recBuf[i] < minVal){
-	  			  minVal = recBuf[i];
-	  		  }
-	  		  if(recBuf[i] > maxVal){
-	  			  maxVal = recBuf[i];
-	  		  }
-		  }
-
-		  if(minVal < 0) minVal = -1 * minVal;
-
-		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
-
-		  for(int j = 0; j < AUDIO_REC/2; j++){
-			  recBuf[j] = recBuf[j] + minVal;
-			  playBuf[j] = temp * recBuf[j];
-		  }
-
-		  dmaRecBuffHalfCplt = 0;
-	  }
     /* USER CODE BEGIN 3 */
-	  //HAL_GPIO_TogglePin(YLED_GPIO_Port, YLED_Pin);
-	  //HAL_Delay(1000);
+	  if(isPlaying == 1){
+		  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, playBuf, BUFSIZE, DAC_ALIGN_12B_R);
+		  HAL_Delay(5000);
+		  HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+	  }
+//	  if(dmaRecBuffHalfCplt == 1){
+//		  for(int i = 0; i < BUFSIZE/2; i++){
+//
+//			  recBuf[i] = recBuf[i] >> 8;
+//
+//			  if(recBuf[i] < minVal){
+//				  minVal = recBuf[i];
+//			  }
+//			  if(recBuf[i] > maxVal){
+//				  maxVal = recBuf[i];
+//			  }
+//		  }
+//
+//		  if(minVal < 0) minVal = -1 * minVal;
+//
+//		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
+//
+//		  for(int j = 0; j < BUFSIZE/2; j++){
+//			  recBuf[j] = recBuf[j] + minVal;
+//			  playBuf[j] = temp * recBuf[j];
+//		  }
+//		  dmaRecBuffHalfCplt = 0;
+//	  }
+//	  if(dmaRecBuffCplt == 1){
+//		  for(int i = BUFSIZE/2; i < BUFSIZE; i++){
+//
+//			  recBuf[i] = recBuf[i] >> 8;
+//
+//			  if(recBuf[i] < minVal){
+//				  minVal = recBuf[i];
+//			  }
+//			  if(recBuf[i] > maxVal){
+//				  maxVal = recBuf[i];
+//			  }
+//		  }
+//
+//		  if(minVal < 0) minVal = -1 * minVal;
+//
+//		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
+//
+//		  for(int j = BUFSIZE/2; j < BUFSIZE; j++){
+//			  recBuf[j] = recBuf[j] + minVal;
+//			  playBuf[j] = temp * recBuf[j];
+//		  }
+//		  dmaRecBuffCplt = 0;
+//	  }
   }
   /* USER CODE END 3 */
 }
@@ -302,7 +357,7 @@ static void MX_DFSDM1_Init(void)
   hdfsdm1_filter0.Init.RegularParam.Trigger = DFSDM_FILTER_SW_TRIGGER;
   hdfsdm1_filter0.Init.RegularParam.FastMode = ENABLE;
   hdfsdm1_filter0.Init.RegularParam.DmaMode = ENABLE;
-  hdfsdm1_filter0.Init.FilterParam.SincOrder = DFSDM_FILTER_FASTSINC_ORDER;
+  hdfsdm1_filter0.Init.FilterParam.SincOrder = DFSDM_FILTER_SINC3_ORDER;
   hdfsdm1_filter0.Init.FilterParam.Oversampling = 100;
   hdfsdm1_filter0.Init.FilterParam.IntOversampling = 1;
   if (HAL_DFSDM_FilterInit(&hdfsdm1_filter0) != HAL_OK)
@@ -369,7 +424,7 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
