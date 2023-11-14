@@ -57,14 +57,14 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define CHANNELBUT_Pin GPIO_PIN_13
-#define CHANNELBUT_GPIO_Port GPIOC
-#define CHANNELBUT_EXTI_IRQn EXTI15_10_IRQn
+#define TALKBUT_Pin GPIO_PIN_13
+#define TALKBUT_GPIO_Port GPIOC
+#define TALKBUT_EXTI_IRQn EXTI15_10_IRQn
 #define YLED_Pin GPIO_PIN_4
 #define YLED_GPIO_Port GPIOA
-#define TALKBUT_Pin GPIO_PIN_14
-#define TALKBUT_GPIO_Port GPIOD
-#define TALKBUT_EXTI_IRQn EXTI15_10_IRQn
+#define CHANNELBUT_Pin GPIO_PIN_14
+#define CHANNELBUT_GPIO_Port GPIOD
+#define CHANNELBUT_EXTI_IRQn EXTI15_10_IRQn
 
 /* USER CODE BEGIN Private defines */
 

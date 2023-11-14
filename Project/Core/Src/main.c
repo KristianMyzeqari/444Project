@@ -62,9 +62,8 @@ float temp;
 //Flags
 int dmaRecBuffHalfCplt = 0;
 int dmaRecBuffCplt = 0;
-int hasRecorded = 0;
+int counter = 0;
 int isPlaying = 0;
-int isRecording = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -81,14 +80,18 @@ static void MX_TIM2_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-	if(GPIO_Pin == TALKBUT_Pin){
-		HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
-		isPlaying = 1;
+	if(GPIO_Pin == CHANNELBUT_Pin){
 	}
 
-	if(GPIO_Pin == CHANNELBUT_Pin){
-		HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBuf, BUFSIZE);
-		hasRecorded = 1;
+	if(GPIO_Pin == TALKBUT_Pin){
+		if(counter % 2 == 0){
+			HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBuf, BUFSIZE);
+		}
+		else{
+			HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+			isPlaying = 1;
+		}
+		counter++;
 	}
 }
 
@@ -439,11 +442,11 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12|GPIO_PIN_13, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : CHANNELBUT_Pin */
-  GPIO_InitStruct.Pin = CHANNELBUT_Pin;
+  /*Configure GPIO pin : TALKBUT_Pin */
+  GPIO_InitStruct.Pin = TALKBUT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(CHANNELBUT_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(TALKBUT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : YLED_Pin */
   GPIO_InitStruct.Pin = YLED_Pin;
@@ -466,11 +469,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : TALKBUT_Pin */
-  GPIO_InitStruct.Pin = TALKBUT_Pin;
+  /*Configure GPIO pin : CHANNELBUT_Pin */
+  GPIO_InitStruct.Pin = CHANNELBUT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(TALKBUT_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(CHANNELBUT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PE1 */
   GPIO_InitStruct.Pin = GPIO_PIN_1;
