@@ -52,7 +52,6 @@ TIM_HandleTypeDef htim2;
 /* USER CODE BEGIN PV */
 //Recording buffers
 int32_t recBuf[BUFSIZE];
-int32_t procBuf[BUFSIZE];
 uint32_t playBuf[BUFSIZE];
 
 //Computation values
@@ -94,58 +93,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 }
 
 void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
-	//HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
-	memcpy(procBuf, recBuf, sizeof(recBuf)/2);
-	if(hdfsdm_filter == &hdfsdm1_filter0){
-		for(int i = 0; i < BUFSIZE/2; i++){
+	dmaRecBuffHalfCplt = 1;
 
-			procBuf[i] = procBuf[i] >> 8;
-
-			if(procBuf[i] < minVal){
-				minVal = procBuf[i];
-			}
-			if(procBuf[i] > maxVal){
-				maxVal = procBuf[i];
-			}
-		}
-
-		if(minVal < 0) minVal = -1 * minVal;
-
-		temp = (float)((float)4095/((float)maxVal+(float)minVal));
-
-		for(int j = 0; j < BUFSIZE/2; j++){
-			procBuf[j] = procBuf[j] + minVal;
-			playBuf[j] = temp * procBuf[j];
-		}
-	}
-	//isPlaying = 1;
 }
 
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
-	memcpy(procBuf, recBuf + sizeof(recBuf)/2, sizeof(recBuf)/2);
-	if(hdfsdm_filter == &hdfsdm1_filter0){
-		for(int i = BUFSIZE/2; i < BUFSIZE; i++){
-
-			procBuf[i] = procBuf[i] >> 8;
-
-			if(procBuf[i] < minVal){
-				minVal = procBuf[i];
-			}
-			if(procBuf[i] > maxVal){
-				maxVal = procBuf[i];
-			}
-		}
-
-		if(minVal < 0) minVal = -1 * minVal;
-
-		temp = (float)((float)4095/((float)maxVal+(float)minVal));
-
-		for(int j = BUFSIZE/2; j < BUFSIZE; j++){
-			procBuf[j] = procBuf[j] + minVal;
-			playBuf[j] = temp * procBuf[j];
-		}
-	}
-
+	dmaRecBuffCplt = 1;
 }
 /* USER CODE END 0 */
 
@@ -197,52 +150,52 @@ int main(void)
 		  HAL_Delay(5000);
 		  HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
 	  }
-//	  if(dmaRecBuffHalfCplt == 1){
-//		  for(int i = 0; i < BUFSIZE/2; i++){
-//
-//			  recBuf[i] = recBuf[i] >> 8;
-//
-//			  if(recBuf[i] < minVal){
-//				  minVal = recBuf[i];
-//			  }
-//			  if(recBuf[i] > maxVal){
-//				  maxVal = recBuf[i];
-//			  }
-//		  }
-//
-//		  if(minVal < 0) minVal = -1 * minVal;
-//
-//		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
-//
-//		  for(int j = 0; j < BUFSIZE/2; j++){
-//			  recBuf[j] = recBuf[j] + minVal;
-//			  playBuf[j] = temp * recBuf[j];
-//		  }
-//		  dmaRecBuffHalfCplt = 0;
-//	  }
-//	  if(dmaRecBuffCplt == 1){
-//		  for(int i = BUFSIZE/2; i < BUFSIZE; i++){
-//
-//			  recBuf[i] = recBuf[i] >> 8;
-//
-//			  if(recBuf[i] < minVal){
-//				  minVal = recBuf[i];
-//			  }
-//			  if(recBuf[i] > maxVal){
-//				  maxVal = recBuf[i];
-//			  }
-//		  }
-//
-//		  if(minVal < 0) minVal = -1 * minVal;
-//
-//		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
-//
-//		  for(int j = BUFSIZE/2; j < BUFSIZE; j++){
-//			  recBuf[j] = recBuf[j] + minVal;
-//			  playBuf[j] = temp * recBuf[j];
-//		  }
-//		  dmaRecBuffCplt = 0;
-//	  }
+	  if(dmaRecBuffHalfCplt == 1){
+		  for(int i = 0; i < BUFSIZE/2; i++){
+
+			  recBuf[i] = recBuf[i] >> 8;
+
+			  if(recBuf[i] < minVal){
+				  minVal = recBuf[i];
+			  }
+			  if(recBuf[i] > maxVal){
+				  maxVal = recBuf[i];
+			  }
+		  }
+
+		  if(minVal < 0) minVal = -1 * minVal;
+
+		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
+
+		  for(int j = 0; j < BUFSIZE/2; j++){
+			  recBuf[j] = recBuf[j] + minVal;
+			  playBuf[j] = temp * recBuf[j];
+		  }
+		  dmaRecBuffHalfCplt = 0;
+	  }
+	  if(dmaRecBuffCplt == 1){
+		  for(int i = BUFSIZE/2; i < BUFSIZE; i++){
+
+			  recBuf[i] = recBuf[i] >> 8;
+
+			  if(recBuf[i] < minVal){
+				  minVal = recBuf[i];
+			  }
+			  if(recBuf[i] > maxVal){
+				  maxVal = recBuf[i];
+			  }
+		  }
+
+		  if(minVal < 0) minVal = -1 * minVal;
+
+		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
+
+		  for(int j = BUFSIZE/2; j < BUFSIZE; j++){
+			  recBuf[j] = recBuf[j] + minVal;
+			  playBuf[j] = temp * recBuf[j];
+		  }
+		  dmaRecBuffCplt = 0;
+	  }
   }
   /* USER CODE END 3 */
 }
