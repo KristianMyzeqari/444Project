@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -95,17 +95,17 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
 	//HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
-	memcpy(procBuf, recBuf, BUFSIZE);
+	memcpy(procBuf, recBuf, sizeof(recBuf)/2);
 	if(hdfsdm_filter == &hdfsdm1_filter0){
 		for(int i = 0; i < BUFSIZE/2; i++){
 
 			procBuf[i] = procBuf[i] >> 8;
 
 			if(procBuf[i] < minVal){
-				minVal = recBuf[i];
+				minVal = procBuf[i];
 			}
 			if(procBuf[i] > maxVal){
-				maxVal = recBuf[i];
+				maxVal = procBuf[i];
 			}
 		}
 
@@ -118,19 +118,21 @@ void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_
 			playBuf[j] = temp * procBuf[j];
 		}
 	}
+	//isPlaying = 1;
 }
 
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
+	memcpy(procBuf, recBuf + sizeof(recBuf)/2, sizeof(recBuf)/2);
 	if(hdfsdm_filter == &hdfsdm1_filter0){
 		for(int i = BUFSIZE/2; i < BUFSIZE; i++){
 
-			recBuf[i] = recBuf[i] >> 8;
+			procBuf[i] = procBuf[i] >> 8;
 
-			if(recBuf[i] < minVal){
-				minVal = recBuf[i];
+			if(procBuf[i] < minVal){
+				minVal = procBuf[i];
 			}
-			if(recBuf[i] > maxVal){
-				maxVal = recBuf[i];
+			if(procBuf[i] > maxVal){
+				maxVal = procBuf[i];
 			}
 		}
 
@@ -139,10 +141,11 @@ void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filt
 		temp = (float)((float)4095/((float)maxVal+(float)minVal));
 
 		for(int j = BUFSIZE/2; j < BUFSIZE; j++){
-			recBuf[j] = recBuf[j] + minVal;
-			playBuf[j] = temp * recBuf[j];
+			procBuf[j] = procBuf[j] + minVal;
+			playBuf[j] = temp * procBuf[j];
 		}
 	}
+
 }
 /* USER CODE END 0 */
 
@@ -323,7 +326,7 @@ static void MX_DAC1_Init(void)
   /** DAC channel OUT2 config
   */
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
   sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_ABOVE_80MHZ;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
