@@ -22,6 +22,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
+
+#include "stm32l4s5i_iot01_qspi.h"
+#include "DFSDM_operations.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,6 +35,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BUFSIZE		32000
+#define BLOCK2		0x100000UL
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -47,22 +51,24 @@ DFSDM_Filter_HandleTypeDef hdfsdm1_filter0;
 DFSDM_Channel_HandleTypeDef hdfsdm1_channel2;
 DMA_HandleTypeDef hdma_dfsdm1_flt0;
 
+OSPI_HandleTypeDef hospi1;
+
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
-//Recording buffers
-int32_t recBuf[BUFSIZE];
-uint32_t playBuf[BUFSIZE];
 
-//Computation values
-int32_t maxVal = INT32_MIN;
-int32_t minVal = INT32_MAX;
-float temp;
+//Addresses
+int32_t writeAddress = 0;
+
+//Recording buffers
+//int32_t recBuf[BUFSIZE];
+//uint32_t playBuf[BUFSIZE];
 
 //Flags
 int dmaRecBuffHalfCplt = 0;
 int dmaRecBuffCplt = 0;
 int counter = 0;
+int hasRecording = 0;
 int isPlaying = 0;
 /* USER CODE END PV */
 
@@ -73,6 +79,7 @@ static void MX_DMA_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_DFSDM1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_OCTOSPI1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -84,10 +91,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	}
 
 	if(GPIO_Pin == TALKBUT_Pin){
-		if(counter % 2 == 0){
-			HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBuf, BUFSIZE);
-		}
-		else{
+		if(counter % 2 != 0){
 			HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
 			isPlaying = 1;
 		}
@@ -137,8 +141,39 @@ int main(void)
   MX_DAC1_Init();
   MX_DFSDM1_Init();
   MX_TIM2_Init();
+  MX_OCTOSPI1_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim2);
+
+
+  //Initialize QSPI for FLASH memory access
+  if(BSP_QSPI_Init() != QSPI_OK){
+	  Error_Handler();
+  }
+
+  //Erase memory for blocks 0 and 1
+  if(BSP_QSPI_Erase_Block(0) != QSPI_OK){
+	  Error_Handler();
+  }
+  if(BSP_QSPI_Erase_Block(BLOCK2) != QSPI_OK){
+	  Error_Handler();
+  }
+
+  int offset = 0;
+
+  union {
+	  int32_t recBuf[BUFSIZE];
+	  int8_t recByteBuf[BUFSIZE*4];
+  }recBufs;
+  union {
+	  uint32_t playBuf[BUFSIZE];
+	  uint8_t playByteBuf[BUFSIZE*4];
+  } buffer;
+  union{
+	  uint32_t newPlayBuf[BUFSIZE];
+	  uint8_t newByteBuf[BUFSIZE*4];
+  } testBuffer;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -148,56 +183,28 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  if(counter % 2 == 1 && hasRecording != 1){
+		  isPlaying = 0;
+		  HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBufs.recBuf, BUFSIZE);
+		  hasRecording = 1;
+		  //counter ++;
+	  }
 	  if(isPlaying == 1){
-		  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, playBuf, BUFSIZE, DAC_ALIGN_12B_R);
+		  hasRecording = 0;
+		  BSP_QSPI_Read(testBuffer.newByteBuf, 0, sizeof(buffer));
+		  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, testBuffer.newPlayBuf, BUFSIZE, DAC_ALIGN_12B_R);
 		  HAL_Delay(5000);
 		  HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+		  isPlaying = 0;
 	  }
 	  if(dmaRecBuffHalfCplt == 1){
-		  for(int i = 0; i < BUFSIZE/2; i++){
-
-			  recBuf[i] = recBuf[i] >> 8;
-
-			  if(recBuf[i] < minVal){
-				  minVal = recBuf[i];
-			  }
-			  if(recBuf[i] > maxVal){
-				  maxVal = recBuf[i];
-			  }
-		  }
-
-		  if(minVal < 0) minVal = -1 * minVal;
-
-		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
-
-		  for(int j = 0; j < BUFSIZE/2; j++){
-			  recBuf[j] = recBuf[j] + minVal;
-			  playBuf[j] = temp * recBuf[j];
-		  }
-		  dmaRecBuffHalfCplt = 0;
+		  HalfFullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE, &dmaRecBuffHalfCplt);
+		  BSP_QSPI_Write(buffer.playByteBuf, 0, sizeof(buffer));
+		  offset++;
 	  }
+
 	  if(dmaRecBuffCplt == 1){
-		  for(int i = BUFSIZE/2; i < BUFSIZE; i++){
-
-			  recBuf[i] = recBuf[i] >> 8;
-
-			  if(recBuf[i] < minVal){
-				  minVal = recBuf[i];
-			  }
-			  if(recBuf[i] > maxVal){
-				  maxVal = recBuf[i];
-			  }
-		  }
-
-		  if(minVal < 0) minVal = -1 * minVal;
-
-		  temp = (float)((float)4095/((float)maxVal+(float)minVal));
-
-		  for(int j = BUFSIZE/2; j < BUFSIZE; j++){
-			  recBuf[j] = recBuf[j] + minVal;
-			  playBuf[j] = temp * recBuf[j];
-		  }
-		  dmaRecBuffCplt = 0;
+		  //FullBufferOperations(recBuf, playBuf, BUFSIZE, &dmaRecBuffHalfCplt);
 	  }
   }
   /* USER CODE END 3 */
@@ -347,6 +354,54 @@ static void MX_DFSDM1_Init(void)
   /* USER CODE BEGIN DFSDM1_Init 2 */
 
   /* USER CODE END DFSDM1_Init 2 */
+
+}
+
+/**
+  * @brief OCTOSPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_OCTOSPI1_Init(void)
+{
+
+  /* USER CODE BEGIN OCTOSPI1_Init 0 */
+
+  /* USER CODE END OCTOSPI1_Init 0 */
+
+  OSPIM_CfgTypeDef OSPIM_Cfg_Struct = {0};
+
+  /* USER CODE BEGIN OCTOSPI1_Init 1 */
+
+  /* USER CODE END OCTOSPI1_Init 1 */
+  /* OCTOSPI1 parameter configuration*/
+  hospi1.Instance = OCTOSPI1;
+  hospi1.Init.FifoThreshold = 1;
+  hospi1.Init.DualQuad = HAL_OSPI_DUALQUAD_DISABLE;
+  hospi1.Init.MemoryType = HAL_OSPI_MEMTYPE_MICRON;
+  hospi1.Init.DeviceSize = 32;
+  hospi1.Init.ChipSelectHighTime = 1;
+  hospi1.Init.FreeRunningClock = HAL_OSPI_FREERUNCLK_DISABLE;
+  hospi1.Init.ClockMode = HAL_OSPI_CLOCK_MODE_0;
+  hospi1.Init.ClockPrescaler = 1;
+  hospi1.Init.SampleShifting = HAL_OSPI_SAMPLE_SHIFTING_NONE;
+  hospi1.Init.DelayHoldQuarterCycle = HAL_OSPI_DHQC_DISABLE;
+  hospi1.Init.ChipSelectBoundary = 0;
+  hospi1.Init.DelayBlockBypass = HAL_OSPI_DELAY_BLOCK_BYPASSED;
+  if (HAL_OSPI_Init(&hospi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  OSPIM_Cfg_Struct.ClkPort = 1;
+  OSPIM_Cfg_Struct.NCSPort = 1;
+  OSPIM_Cfg_Struct.IOLowPort = HAL_OSPIM_IOPORT_1_LOW;
+  if (HAL_OSPIM_Config(&hospi1, &OSPIM_Cfg_Struct, HAL_OSPI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN OCTOSPI1_Init 2 */
+
+  /* USER CODE END OCTOSPI1_Init 2 */
 
 }
 
