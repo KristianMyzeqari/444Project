@@ -195,14 +195,18 @@ int main(void)
 			  BSP_QSPI_Read(testBuffer.newByteBuf, readAddress, sizeof(buffer));
 			  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, testBuffer.newPlayBuf, BUFSIZE/2, DAC_ALIGN_12B_R);
 			  readAddress += sizeof(buffer);
-			  HAL_Delay(600);
+			  HAL_Delay(640);
 			  HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
 		  }
 
 		  if(BSP_QSPI_Erase_Block(0) != QSPI_OK){
 		  	  Error_Handler();
 		  }
+		  if(BSP_QSPI_Erase_Block(BLOCK2) != QSPI_OK){
+		  	  Error_Handler();
+		  }
 
+		  halfBufCount = 0;
 		  readAddress = 0;
 		  isPlaying = 0;
 	  }

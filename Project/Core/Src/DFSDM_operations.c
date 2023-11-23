@@ -55,5 +55,5 @@ void FullBufferOperations(int32_t* recBuf, uint32_t* playBuf, int BUFSIZE, int* 
 		recBuf[j] = recBuf[j] + minVal;
 		playBuf[j - BUFSIZE/2] = temp * recBuf[j];
 	}
-	flag = 0;
+	*flag = 0;
 }
