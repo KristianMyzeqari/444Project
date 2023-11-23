@@ -53,7 +53,7 @@ void FullBufferOperations(int32_t* recBuf, uint32_t* playBuf, int BUFSIZE, int* 
 
 	for(int j = BUFSIZE/2; j < BUFSIZE; j++){
 		recBuf[j] = recBuf[j] + minVal;
-		playBuf[j] = temp * recBuf[j];
+		playBuf[j - BUFSIZE/2] = temp * recBuf[j];
 	}
 	flag = 0;
 }

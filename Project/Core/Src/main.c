@@ -58,17 +58,30 @@ TIM_HandleTypeDef htim2;
 /* USER CODE BEGIN PV */
 
 //Addresses
-int32_t writeAddress = 0;
+int writeAddress = 0;
+int readAddress = 0;
 
 //Recording buffers
 //int32_t recBuf[BUFSIZE];
 //uint32_t playBuf[BUFSIZE];
+union {
+	  int32_t recBuf[BUFSIZE];
+	  int8_t recByteBuf[BUFSIZE*4];
+}recBufs;
+union {
+	  uint32_t playBuf[BUFSIZE/2];
+	  uint8_t playByteBuf[BUFSIZE*2];
+} buffer;
+union{
+	  uint32_t newPlayBuf[BUFSIZE/2];
+	  uint8_t newByteBuf[BUFSIZE*2];
+} testBuffer;
 
 //Flags
 int dmaRecBuffHalfCplt = 0;
 int dmaRecBuffCplt = 0;
 int counter = 0;
-int hasRecording = 0;
+int halfBufCount = 0;
 int isPlaying = 0;
 /* USER CODE END PV */
 
@@ -92,8 +105,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 	if(GPIO_Pin == TALKBUT_Pin){
 		if(counter % 2 != 0){
-			HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
 			isPlaying = 1;
+			HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+		}
+		else{
+			isPlaying = 0;
+			HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBufs.recBuf, BUFSIZE);
 		}
 		counter++;
 	}
@@ -159,20 +176,9 @@ int main(void)
 	  Error_Handler();
   }
 
-  int offset = 0;
+  //int counter = 0;
 
-  union {
-	  int32_t recBuf[BUFSIZE];
-	  int8_t recByteBuf[BUFSIZE*4];
-  }recBufs;
-  union {
-	  uint32_t playBuf[BUFSIZE];
-	  uint8_t playByteBuf[BUFSIZE*4];
-  } buffer;
-  union{
-	  uint32_t newPlayBuf[BUFSIZE];
-	  uint8_t newByteBuf[BUFSIZE*4];
-  } testBuffer;
+
 
   /* USER CODE END 2 */
 
@@ -183,28 +189,36 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  if(counter % 2 == 1 && hasRecording != 1){
-		  isPlaying = 0;
-		  HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBufs.recBuf, BUFSIZE);
-		  hasRecording = 1;
-		  //counter ++;
-	  }
 	  if(isPlaying == 1){
-		  hasRecording = 0;
-		  BSP_QSPI_Read(testBuffer.newByteBuf, 0, sizeof(buffer));
-		  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, testBuffer.newPlayBuf, BUFSIZE, DAC_ALIGN_12B_R);
-		  HAL_Delay(5000);
-		  HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+		  writeAddress = 0;
+		  for(int i = 0; i <= halfBufCount; i++){
+			  BSP_QSPI_Read(testBuffer.newByteBuf, readAddress, sizeof(buffer));
+			  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, testBuffer.newPlayBuf, BUFSIZE/2, DAC_ALIGN_12B_R);
+			  readAddress += sizeof(buffer);
+			  HAL_Delay(600);
+			  HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+		  }
+
+		  if(BSP_QSPI_Erase_Block(0) != QSPI_OK){
+		  	  Error_Handler();
+		  }
+
+		  readAddress = 0;
 		  isPlaying = 0;
 	  }
+
 	  if(dmaRecBuffHalfCplt == 1){
 		  HalfFullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE, &dmaRecBuffHalfCplt);
-		  BSP_QSPI_Write(buffer.playByteBuf, 0, sizeof(buffer));
-		  offset++;
+		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress, sizeof(buffer));
+		  writeAddress += sizeof(buffer);
+		  halfBufCount++;
 	  }
 
 	  if(dmaRecBuffCplt == 1){
-		  //FullBufferOperations(recBuf, playBuf, BUFSIZE, &dmaRecBuffHalfCplt);
+		  FullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE, &dmaRecBuffHalfCplt);
+		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress, sizeof(buffer));
+		  writeAddress += sizeof(buffer);
+		  halfBufCount++;
 	  }
   }
   /* USER CODE END 3 */
