@@ -58,8 +58,8 @@ TIM_HandleTypeDef htim2;
 /* USER CODE BEGIN PV */
 
 //Addresses
-int writeAddress = 0;
-int readAddress = 0;
+int writeAddress = BLOCK2;
+int readAddress = BLOCK2;
 
 //Recording buffers
 //int32_t recBuf[BUFSIZE];
@@ -117,11 +117,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 }
 
 void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
-	dmaRecBuffHalfCplt = 1;
+	//for offset calculation when writing data
+	if(halfBufCount != 0) halfBufCount++;
 
+	dmaRecBuffHalfCplt = 1;
 }
 
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
+	halfBufCount++;
 	dmaRecBuffCplt = 1;
 }
 /* USER CODE END 0 */
@@ -190,13 +193,16 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	  if(isPlaying == 1){
-		  writeAddress = 0;
+		  writeAddress = BLOCK2;
 		  for(int i = 0; i <= halfBufCount; i++){
-			  BSP_QSPI_Read(testBuffer.newByteBuf, readAddress, sizeof(buffer));
+			  BSP_QSPI_Read(testBuffer.newByteBuf, readAddress + (i*sizeof(buffer)), sizeof(buffer));
 			  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, testBuffer.newPlayBuf, BUFSIZE/2, DAC_ALIGN_12B_R);
-			  readAddress += sizeof(buffer);
-			  HAL_Delay(640);
-			  HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+			  //readAddress += sizeof(buffer);
+			  HAL_Delay(1000);
+			  for(int j = 0; j<64000; j++){
+				  testBuffer.newByteBuf[j] = 0;
+			  }
+			  //HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
 		  }
 
 		  if(BSP_QSPI_Erase_Block(0) != QSPI_OK){
@@ -207,22 +213,22 @@ int main(void)
 		  }
 
 		  halfBufCount = 0;
-		  readAddress = 0;
+		  readAddress = BLOCK2;
 		  isPlaying = 0;
 	  }
 
 	  if(dmaRecBuffHalfCplt == 1){
-		  HalfFullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE, &dmaRecBuffHalfCplt);
-		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress, sizeof(buffer));
-		  writeAddress += sizeof(buffer);
-		  halfBufCount++;
+		  HalfFullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
+		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress + (halfBufCount*sizeof(buffer)), sizeof(buffer));
+		  dmaRecBuffHalfCplt = 0;
+		  //writeAddress += sizeof(buffer);
 	  }
 
 	  if(dmaRecBuffCplt == 1){
-		  FullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE, &dmaRecBuffHalfCplt);
-		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress, sizeof(buffer));
-		  writeAddress += sizeof(buffer);
-		  halfBufCount++;
+		  FullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
+		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress + (halfBufCount*sizeof(buffer)), sizeof(buffer));
+		  dmaRecBuffCplt = 0;
+		  //writeAddress += sizeof(buffer);
 	  }
   }
   /* USER CODE END 3 */

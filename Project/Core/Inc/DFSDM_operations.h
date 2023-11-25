@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-void HalfFullBufferOperations(int32_t* recBuf, uint32_t* playBuf, int BUFSIZE, int *flag);
-void FullBufferOperations(int32_t* recBuf, uint32_t* playBuf, int BUFSIZE, int *flag);
+void HalfFullBufferOperations(int32_t* recBuf, uint32_t* playBuf, int BUFSIZE);
+void FullBufferOperations(int32_t* recBuf, uint32_t* playBuf, int BUFSIZE);
 
 #endif /* INC_DFSDM_OPERATIONS_H_ */
