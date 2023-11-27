@@ -34,7 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define BUFSIZE		32000
+#define BUFSIZE		64000
 #define BLOCK2		0x100000UL
 /* USER CODE END PD */
 
@@ -58,8 +58,8 @@ TIM_HandleTypeDef htim2;
 /* USER CODE BEGIN PV */
 
 //Addresses
-int writeAddress = BLOCK2;
-int readAddress = BLOCK2;
+int baseAddrTempVals = 0;
+int baseAddrGyroVals = BLOCK2;
 
 //Recording buffers
 //int32_t recBuf[BUFSIZE];
@@ -69,13 +69,10 @@ union {
 	int8_t recByteBuf[BUFSIZE*4];
 }recBufs;
 union {
-	uint32_t playBuf[BUFSIZE/2];
-	uint8_t playByteBuf[BUFSIZE*2];
+	uint32_t playBuf[BUFSIZE];
+	uint8_t playByteBuf[BUFSIZE*4];
 } buffer;
-union{
-	uint32_t newPlayBuf[BUFSIZE/2];
-	uint8_t newByteBuf[BUFSIZE*2];
-} testBuffer;
+
 
 
 //Flags
@@ -84,6 +81,7 @@ int dmaRecBuffCplt = 0;
 int counter = 0;
 int halfBufCount = 0;
 int isPlaying = 0;
+int read = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -111,24 +109,25 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 		}
 		else{
 			isPlaying = 0;
-			HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBufs.recBuf, BUFSIZE);
+			read = 1;
 		}
 		counter++;
 	}
 }
 
-void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
-	//for offset calculation when writing data
-	if(halfBufCount != 0) halfBufCount++;
-
-	dmaRecBuffHalfCplt = 1;
-}
+//void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
+//	//for offset calculation when writing data
+//	if(halfBufCount != 0) halfBufCount++;
+//
+//	dmaRecBuffHalfCplt = 1;
+//}
 
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
 //	HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
 //	isPlaying = 1;
-	halfBufCount++;
+	//halfBufCount++;
 	dmaRecBuffCplt = 1;
+	//isPlaying = 1;
 }
 /* USER CODE END 0 */
 
@@ -195,15 +194,19 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  if(read == 1){
+		  HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBufs.recBuf, sizeof(recBufs.recBuf));
+		  read = 0;
+	  }
 	  if(isPlaying == 1){
-		  for(int i = 0; i <= halfBufCount; i++){
-			  BSP_QSPI_Read(testBuffer.newByteBuf, readAddress + (i*(sizeof(buffer) + 4)), sizeof(buffer));
-			  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, testBuffer.newPlayBuf, BUFSIZE/2, DAC_ALIGN_12B_R);
-			  HAL_Delay(1000);
+		  //for(int i = 0; i <= halfBufCount; i++){
+			  BSP_QSPI_Read(buffer.playByteBuf, baseAddrTempVals, BUFSIZE);
+			  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, buffer.playBuf, BUFSIZE, DAC_ALIGN_12B_R);
+			  //HAL_Delay(1000);
 //			  for(int j = 0; j<BUFSIZE/2; j++){
 //				  testBuffer.newPlayBuf[j] = 0;
 //			  }
-		  }
+		  //}
 
 		  if(BSP_QSPI_Erase_Block(0) != QSPI_OK){
 		  	  Error_Handler();
@@ -213,30 +216,30 @@ int main(void)
 		  }
 
 		  halfBufCount = 0;
-		  readAddress = BLOCK2;
+		  //readAddress = BLOCK2;
 		  isPlaying = 0;
 	  }
 
-	  if(dmaRecBuffHalfCplt == 1){
-		  HalfFullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
-		  HAL_Delay(10);
-		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress + (halfBufCount*(sizeof(buffer) + 4)), sizeof(buffer));
-		  dmaRecBuffHalfCplt = 0;
-
-		  for(int j = 0; j<BUFSIZE/2; j++){
-			  buffer.playBuf[j] = 0;
-		  }
-	  }
+//	  if(dmaRecBuffHalfCplt == 1){
+//		  HalfFullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
+//		  HAL_Delay(10);
+//		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress + (halfBufCount*(sizeof(buffer) + 4)), sizeof(buffer));
+//		  dmaRecBuffHalfCplt = 0;
+//
+//		  for(int j = 0; j<BUFSIZE/2; j++){
+//			  buffer.playBuf[j] = 0;
+//		  }
+//	  }
 
 	  if(dmaRecBuffCplt == 1){
 		  FullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
 		  HAL_Delay(10);
-		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress + (halfBufCount*(sizeof(buffer) + 4)), sizeof(buffer));
 		  dmaRecBuffCplt = 0;
-
-		  for(int j = 0; j<BUFSIZE/2; j++){
-			  buffer.playBuf[j] = 0;
-		  }
+		  BSP_QSPI_Write(buffer.playByteBuf, baseAddrTempVals, BUFSIZE);
+//
+//		  for(int j = 0; j<BUFSIZE/2; j++){
+//			  buffer.playBuf[j] = 0;
+//		  }
 	  }
   }
   /* USER CODE END 3 */
