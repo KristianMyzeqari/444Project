@@ -62,6 +62,8 @@ void Error_Handler(void);
 #define TALKBUT_EXTI_IRQn EXTI15_10_IRQn
 #define YLED_Pin GPIO_PIN_4
 #define YLED_GPIO_Port GPIOA
+#define GREENLED_Pin GPIO_PIN_14
+#define GREENLED_GPIO_Port GPIOB
 #define CHANNELBUT_Pin GPIO_PIN_14
 #define CHANNELBUT_GPIO_Port GPIOD
 #define CHANNELBUT_EXTI_IRQn EXTI15_10_IRQn

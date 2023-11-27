@@ -35,7 +35,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BUFSIZE		64000
-#define BLOCK2		0x100000UL
+#define BLOCK2		0x200000UL
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -62,8 +62,6 @@ int baseAddrTempVals = 0;
 int baseAddrGyroVals = BLOCK2;
 
 //Recording buffers
-//int32_t recBuf[BUFSIZE];
-//uint32_t playBuf[BUFSIZE];
 union {
 	int32_t recBuf[BUFSIZE];
 	int8_t recByteBuf[BUFSIZE*4];
@@ -73,15 +71,16 @@ union {
 	uint8_t playByteBuf[BUFSIZE*4];
 } buffer;
 
-
+//sensor type
+int sensType = 0;
 
 //Flags
-int dmaRecBuffHalfCplt = 0;
 int dmaRecBuffCplt = 0;
-int counter = 0;
-int halfBufCount = 0;
 int isPlaying = 0;
 int read = 0;
+
+int tempHasRec = 0;
+int gyroHasRec = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -100,18 +99,20 @@ static void MX_OCTOSPI1_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	if(GPIO_Pin == CHANNELBUT_Pin){
+		sensType++;
+		if(sensType == 2) sensType = 0;
 	}
 
 	if(GPIO_Pin == TALKBUT_Pin){
-		if(counter % 2 != 0){
-			isPlaying = 1;
-			HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
-		}
-		else{
-			isPlaying = 0;
+		if(sensType == 0 && tempHasRec == 0){
 			read = 1;
 		}
-		counter++;
+		else if(sensType == 1 && gyroHasRec == 0){
+			read = 1;
+		}
+		else {
+			isPlaying = 1;
+		}
 	}
 }
 
@@ -123,11 +124,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 //}
 
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
-//	HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
-//	isPlaying = 1;
-	//halfBufCount++;
 	dmaRecBuffCplt = 1;
-	//isPlaying = 1;
 }
 /* USER CODE END 0 */
 
@@ -181,6 +178,7 @@ int main(void)
 	  Error_Handler();
   }
 
+
   //int counter = 0;
 
 
@@ -194,53 +192,61 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  if(read == 1){
-		  HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBufs.recBuf, sizeof(recBufs.recBuf));
-		  read = 0;
-	  }
-	  if(isPlaying == 1){
-		  //for(int i = 0; i <= halfBufCount; i++){
+	  if(sensType == 0){
+		  HAL_GPIO_WritePin(YLED_GPIO_Port, YLED_Pin, GPIO_PIN_SET);
+		  if(read == 1 && tempHasRec == 0){
+			  HAL_GPIO_WritePin(GREENLED_GPIO_Port, GREENLED_Pin, GPIO_PIN_SET);
+			  HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBufs.recBuf, sizeof(recBufs.recBuf));
+			  read = 0;
+			  tempHasRec = 1;
+		  }
+		  if(isPlaying == 1){
 			  BSP_QSPI_Read(buffer.playByteBuf, baseAddrTempVals, BUFSIZE);
 			  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, buffer.playBuf, BUFSIZE, DAC_ALIGN_12B_R);
-			  //HAL_Delay(1000);
-//			  for(int j = 0; j<BUFSIZE/2; j++){
-//				  testBuffer.newPlayBuf[j] = 0;
+			  isPlaying = 0;
+		  }
+
+		  if(dmaRecBuffCplt == 1 ){
+			  HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+			  HAL_GPIO_WritePin(GREENLED_GPIO_Port, GREENLED_Pin, GPIO_PIN_RESET);
+			  FullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
+			  HAL_Delay(10);
+			  dmaRecBuffCplt = 0;
+			  BSP_QSPI_Write(buffer.playByteBuf, baseAddrTempVals, BUFSIZE);
+//			  HAL_Delay(100);
+//			  for (int i = 0; i < BUFSIZE; i++){
+//				  buffer.playBuf[i] = 0;
 //			  }
-		  //}
-
-		  if(BSP_QSPI_Erase_Block(0) != QSPI_OK){
-		  	  Error_Handler();
 		  }
-		  if(BSP_QSPI_Erase_Block(BLOCK2) != QSPI_OK){
-		  	  Error_Handler();
+	  }
+	  else if(sensType == 1){
+		  HAL_GPIO_WritePin(YLED_GPIO_Port, YLED_Pin, GPIO_PIN_RESET);
+		  if(read == 1 && gyroHasRec == 0){
+			  HAL_GPIO_WritePin(GREENLED_GPIO_Port, GREENLED_Pin, GPIO_PIN_SET);
+			  HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBufs.recBuf, sizeof(recBufs.recBuf));
+			  read = 0;
+			  gyroHasRec = 1;
+		  }
+		  if(isPlaying == 1){
+			  BSP_QSPI_Read(buffer.playByteBuf, baseAddrGyroVals, BUFSIZE);
+			  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, buffer.playBuf, BUFSIZE, DAC_ALIGN_12B_R);
+			  isPlaying = 0;
 		  }
 
-		  halfBufCount = 0;
-		  //readAddress = BLOCK2;
-		  isPlaying = 0;
+		  if(dmaRecBuffCplt == 1){
+			  HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+			  HAL_GPIO_WritePin(GREENLED_GPIO_Port, GREENLED_Pin, GPIO_PIN_RESET);
+			  FullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
+			  HAL_Delay(10);
+			  dmaRecBuffCplt = 0;
+			  BSP_QSPI_Write(buffer.playByteBuf, baseAddrGyroVals, BUFSIZE);
+//			  HAL_Delay(100);
+//			  for (int i = 0; i < BUFSIZE; i++){
+//				  buffer.playBuf[i] = 0;
+//			  }
+		  }
 	  }
 
-//	  if(dmaRecBuffHalfCplt == 1){
-//		  HalfFullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
-//		  HAL_Delay(10);
-//		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress + (halfBufCount*(sizeof(buffer) + 4)), sizeof(buffer));
-//		  dmaRecBuffHalfCplt = 0;
-//
-//		  for(int j = 0; j<BUFSIZE/2; j++){
-//			  buffer.playBuf[j] = 0;
-//		  }
-//	  }
-
-	  if(dmaRecBuffCplt == 1){
-		  FullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
-		  HAL_Delay(10);
-		  dmaRecBuffCplt = 0;
-		  BSP_QSPI_Write(buffer.playByteBuf, baseAddrTempVals, BUFSIZE);
-//
-//		  for(int j = 0; j<BUFSIZE/2; j++){
-//			  buffer.playBuf[j] = 0;
-//		  }
-	  }
   }
   /* USER CODE END 3 */
 }
@@ -518,10 +524,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(YLED_GPIO_Port, YLED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8|GPIO_PIN_0, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12|GPIO_PIN_13, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GREENLED_GPIO_Port, GREENLED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : TALKBUT_Pin */
   GPIO_InitStruct.Pin = TALKBUT_Pin;
@@ -536,8 +542,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(YLED_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PE8 PE0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_0;
+  /*Configure GPIO pin : PE8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -553,24 +559,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF10_OCTOSPIM_P1;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB12 PB13 */
-  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13;
+  /*Configure GPIO pin : GREENLED_Pin */
+  GPIO_InitStruct.Pin = GREENLED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(GREENLED_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : CHANNELBUT_Pin */
   GPIO_InitStruct.Pin = CHANNELBUT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(CHANNELBUT_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PE1 */
-  GPIO_InitStruct.Pin = GPIO_PIN_1;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
