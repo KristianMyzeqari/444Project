@@ -65,17 +65,18 @@ int readAddress = BLOCK2;
 //int32_t recBuf[BUFSIZE];
 //uint32_t playBuf[BUFSIZE];
 union {
-	  int32_t recBuf[BUFSIZE];
-	  int8_t recByteBuf[BUFSIZE*4];
+	int32_t recBuf[BUFSIZE];
+	int8_t recByteBuf[BUFSIZE*4];
 }recBufs;
 union {
-	  uint32_t playBuf[BUFSIZE/2];
-	  uint8_t playByteBuf[BUFSIZE*2];
+	uint32_t playBuf[BUFSIZE/2];
+	uint8_t playByteBuf[BUFSIZE*2];
 } buffer;
 union{
-	  uint32_t newPlayBuf[BUFSIZE/2];
-	  uint8_t newByteBuf[BUFSIZE*2];
+	uint32_t newPlayBuf[BUFSIZE/2];
+	uint8_t newByteBuf[BUFSIZE*2];
 } testBuffer;
+
 
 //Flags
 int dmaRecBuffHalfCplt = 0;
@@ -124,6 +125,8 @@ void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_
 }
 
 void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter){
+//	HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
+//	isPlaying = 1;
 	halfBufCount++;
 	dmaRecBuffCplt = 1;
 }
@@ -193,16 +196,13 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	  if(isPlaying == 1){
-		  writeAddress = BLOCK2;
 		  for(int i = 0; i <= halfBufCount; i++){
-			  BSP_QSPI_Read(testBuffer.newByteBuf, readAddress + (i*sizeof(buffer)), sizeof(buffer));
+			  BSP_QSPI_Read(testBuffer.newByteBuf, readAddress + (i*(sizeof(buffer) + 4)), sizeof(buffer));
 			  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, testBuffer.newPlayBuf, BUFSIZE/2, DAC_ALIGN_12B_R);
-			  //readAddress += sizeof(buffer);
 			  HAL_Delay(1000);
-			  for(int j = 0; j<64000; j++){
-				  testBuffer.newByteBuf[j] = 0;
-			  }
-			  //HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+//			  for(int j = 0; j<BUFSIZE/2; j++){
+//				  testBuffer.newPlayBuf[j] = 0;
+//			  }
 		  }
 
 		  if(BSP_QSPI_Erase_Block(0) != QSPI_OK){
@@ -219,16 +219,24 @@ int main(void)
 
 	  if(dmaRecBuffHalfCplt == 1){
 		  HalfFullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
-		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress + (halfBufCount*sizeof(buffer)), sizeof(buffer));
+		  HAL_Delay(10);
+		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress + (halfBufCount*(sizeof(buffer) + 4)), sizeof(buffer));
 		  dmaRecBuffHalfCplt = 0;
-		  //writeAddress += sizeof(buffer);
+
+		  for(int j = 0; j<BUFSIZE/2; j++){
+			  buffer.playBuf[j] = 0;
+		  }
 	  }
 
 	  if(dmaRecBuffCplt == 1){
 		  FullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
-		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress + (halfBufCount*sizeof(buffer)), sizeof(buffer));
+		  HAL_Delay(10);
+		  BSP_QSPI_Write(buffer.playByteBuf, writeAddress + (halfBufCount*(sizeof(buffer) + 4)), sizeof(buffer));
 		  dmaRecBuffCplt = 0;
-		  //writeAddress += sizeof(buffer);
+
+		  for(int j = 0; j<BUFSIZE/2; j++){
+			  buffer.playBuf[j] = 0;
+		  }
 	  }
   }
   /* USER CODE END 3 */
@@ -393,8 +401,6 @@ static void MX_OCTOSPI1_Init(void)
 
   /* USER CODE END OCTOSPI1_Init 0 */
 
-  OSPIM_CfgTypeDef OSPIM_Cfg_Struct = {0};
-
   /* USER CODE BEGIN OCTOSPI1_Init 1 */
 
   /* USER CODE END OCTOSPI1_Init 1 */
@@ -413,13 +419,6 @@ static void MX_OCTOSPI1_Init(void)
   hospi1.Init.ChipSelectBoundary = 0;
   hospi1.Init.DelayBlockBypass = HAL_OSPI_DELAY_BLOCK_BYPASSED;
   if (HAL_OSPI_Init(&hospi1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  OSPIM_Cfg_Struct.ClkPort = 1;
-  OSPIM_Cfg_Struct.NCSPort = 1;
-  OSPIM_Cfg_Struct.IOLowPort = HAL_OSPIM_IOPORT_1_LOW;
-  if (HAL_OSPIM_Config(&hospi1, &OSPIM_Cfg_Struct, HAL_OSPI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
   {
     Error_Handler();
   }
@@ -539,6 +538,16 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PE10 PE11 PE12 PE13
+                           PE14 PE15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_13
+                          |GPIO_PIN_14|GPIO_PIN_15;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF10_OCTOSPIM_P1;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PB12 PB13 */

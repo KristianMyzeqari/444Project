@@ -366,7 +366,6 @@ void HAL_DFSDM_ChannelMspDeInit(DFSDM_Channel_HandleTypeDef* hdfsdm_channel)
 */
 void HAL_OSPI_MspInit(OSPI_HandleTypeDef* hospi)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
   RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
   if(hospi->Instance==OCTOSPI1)
   {
@@ -386,24 +385,6 @@ void HAL_OSPI_MspInit(OSPI_HandleTypeDef* hospi)
     /* Peripheral clock enable */
     __HAL_RCC_OSPIM_CLK_ENABLE();
     __HAL_RCC_OSPI1_CLK_ENABLE();
-
-    __HAL_RCC_GPIOE_CLK_ENABLE();
-    /**OCTOSPI1 GPIO Configuration
-    PE10     ------> OCTOSPIM_P1_CLK
-    PE11     ------> OCTOSPIM_P1_NCS
-    PE12     ------> OCTOSPIM_P1_IO0
-    PE13     ------> OCTOSPIM_P1_IO1
-    PE14     ------> OCTOSPIM_P1_IO2
-    PE15     ------> OCTOSPIM_P1_IO3
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_13
-                          |GPIO_PIN_14|GPIO_PIN_15;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF10_OCTOSPIM_P1;
-    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-
   /* USER CODE BEGIN OCTOSPI1_MspInit 1 */
 
   /* USER CODE END OCTOSPI1_MspInit 1 */
@@ -427,18 +408,6 @@ void HAL_OSPI_MspDeInit(OSPI_HandleTypeDef* hospi)
     /* Peripheral clock disable */
     __HAL_RCC_OSPIM_CLK_DISABLE();
     __HAL_RCC_OSPI1_CLK_DISABLE();
-
-    /**OCTOSPI1 GPIO Configuration
-    PE10     ------> OCTOSPIM_P1_CLK
-    PE11     ------> OCTOSPIM_P1_NCS
-    PE12     ------> OCTOSPIM_P1_IO0
-    PE13     ------> OCTOSPIM_P1_IO1
-    PE14     ------> OCTOSPIM_P1_IO2
-    PE15     ------> OCTOSPIM_P1_IO3
-    */
-    HAL_GPIO_DeInit(GPIOE, GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_13
-                          |GPIO_PIN_14|GPIO_PIN_15);
-
   /* USER CODE BEGIN OCTOSPI1_MspDeInit 1 */
 
   /* USER CODE END OCTOSPI1_MspDeInit 1 */

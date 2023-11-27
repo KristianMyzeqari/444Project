@@ -31,6 +31,8 @@ void HalfFullBufferOperations(int32_t* recBuf, uint32_t* playBuf, int BUFSIZE){
 		recBuf[j] = recBuf[j] + minVal;
 		playBuf[j] = temp * recBuf[j];
 	}
+	maxVal = INT32_MIN;
+	minVal = INT32_MAX;
 }
 
 void FullBufferOperations(int32_t* recBuf, uint32_t* playBuf, int BUFSIZE){
@@ -49,9 +51,12 @@ void FullBufferOperations(int32_t* recBuf, uint32_t* playBuf, int BUFSIZE){
 	if(minVal < 0) minVal = -1 * minVal;
 
 	float temp = (float)((float)4095/((float)maxVal+(float)minVal));
-
+	int k = 0;
 	for(int j = BUFSIZE/2; j < BUFSIZE; j++){
 		recBuf[j] = recBuf[j] + minVal;
-		playBuf[j - BUFSIZE/2] = temp * recBuf[j];
+		playBuf[k] = temp * recBuf[j];
+		k++;
 	}
+	maxVal = INT32_MIN;
+	minVal = INT32_MAX;
 }
