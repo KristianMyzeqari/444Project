@@ -50,6 +50,54 @@
 									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Include"/>
 								</option>
 								<option id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.option.slow_flash_data.790672530" name="Assume loading data from flash is slower than fetching instruction (-mslow-flash-data)" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.option.slow_flash_data" useByScannerDiscovery="false" value="false" valueType="boolean"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.option.otherflags.1861873689" name="Other flags" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.option.otherflags" useByScannerDiscovery="true" valueType="stringList">
+									<listOptionValue builtIn="false" value="-fcaller-saves"/>
+									<listOptionValue builtIn="false" value="-freorder-blocks-and-partition"/>
+									<listOptionValue builtIn="false" value="-fcode-hoisting"/>
+									<listOptionValue builtIn="false" value="-fcrossjumping"/>
+									<listOptionValue builtIn="false" value="-fcse-follow-jumps"/>
+									<listOptionValue builtIn="false" value="-fcse-skip-blocks"/>
+									<listOptionValue builtIn="false" value="-fdelete-null-pointer-checks"/>
+									<listOptionValue builtIn="false" value="-fdevirtualize"/>
+									<listOptionValue builtIn="false" value="-fdevirtualize-speculatively"/>
+									<listOptionValue builtIn="false" value="-fexpensive-optimizations"/>
+									<listOptionValue builtIn="false" value="-ffinite-loops"/>
+									<listOptionValue builtIn="false" value="-fgcse"/>
+									<listOptionValue builtIn="false" value="-fgcse-lm"/>
+									<listOptionValue builtIn="false" value="-fhoist-adjacent-loads"/>
+									<listOptionValue builtIn="false" value="-finline-functions"/>
+									<listOptionValue builtIn="false" value="-finline-small-functions"/>
+									<listOptionValue builtIn="false" value="-findirect-inlining"/>
+									<listOptionValue builtIn="false" value="-fipa-bit-cp"/>
+									<listOptionValue builtIn="false" value="-fipa-cp"/>
+									<listOptionValue builtIn="false" value="-fipa-icf"/>
+									<listOptionValue builtIn="false" value="-fipa-ra"/>
+									<listOptionValue builtIn="false" value="-fipa-sra"/>
+									<listOptionValue builtIn="false" value="-fipa-vrp"/>
+									<listOptionValue builtIn="false" value="-fisolate-erroneous-paths-dereference"/>
+									<listOptionValue builtIn="false" value="-flra-remat"/>
+									<listOptionValue builtIn="false" value="-foptimize-sibling-calls"/>
+									<listOptionValue builtIn="false" value="-foptimize-strlen"/>
+									<listOptionValue builtIn="false" value="-fpartial-inlining"/>
+									<listOptionValue builtIn="false" value="-fpeephole2"/>
+									<listOptionValue builtIn="false" value="-freorder-functions"/>
+									<listOptionValue builtIn="false" value="-frerun-cse-after-loop"/>
+									<listOptionValue builtIn="false" value="-fschedule-insns"/>
+									<listOptionValue builtIn="false" value="-fschedule-insns2"/>
+									<listOptionValue builtIn="false" value="-fsched-interblock"/>
+									<listOptionValue builtIn="false" value="-fsched-spec"/>
+									<listOptionValue builtIn="false" value="-fstore-merging"/>
+									<listOptionValue builtIn="false" value="-fstrict-aliasing"/>
+									<listOptionValue builtIn="false" value="-fthread-jumps"/>
+									<listOptionValue builtIn="false" value="-ftree-builtin-call-dce"/>
+									<listOptionValue builtIn="false" value="-ftree-loop-vectorize"/>
+									<listOptionValue builtIn="false" value="-ftree-pre"/>
+									<listOptionValue builtIn="false" value="-ftree-slp-vectorize"/>
+									<listOptionValue builtIn="false" value="-ftree-switch-conversion"/>
+									<listOptionValue builtIn="false" value="-ftree-tail-merge"/>
+									<listOptionValue builtIn="false" value="-ftree-vrp"/>
+									<listOptionValue builtIn="false" value="-fvect-cost-model=very-cheap"/>
+								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.285872835" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>
 							<tool id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler.163316141" name="MCU G++ Compiler" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.cpp.compiler">
