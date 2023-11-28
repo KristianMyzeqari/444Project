@@ -119,7 +119,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 			read = 1;
 		}
 		else {
-			HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
 			isPlaying = 1;
 		}
 	}
