@@ -65,7 +65,7 @@ UART_HandleTypeDef huart1;
 
 //Addresses
 int baseAddrTempVals = 0;
-int baseAddrGyroVals = BLOCK2;
+int baseAddrmagnetoVals = BLOCK2;
 
 //Recording buffers
 union {
@@ -78,15 +78,15 @@ union {
 } buffer;
 
 //sensor type
-int sensType = 0;
+uint8_t sensType = 0;
 
 //Flags
-int dmaRecBuffCplt = 0;
-int isPlaying = 0;
-int read = 0;
+uint8_t dmaRecBuffCplt = 0;
+uint8_t isPlaying = 0;
+uint8_t read = 0;
 
-int tempHasRec = 0;
-int gyroHasRec = 0;
+uint8_t tempHasRec = 0;
+uint8_t magnetoHasRec = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -115,10 +115,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 		if(sensType == 0 && tempHasRec == 0){
 			read = 1;
 		}
-		else if(sensType == 1 && gyroHasRec == 0){
+		else if(sensType == 1 && magnetoHasRec == 0){
 			read = 1;
 		}
 		else {
+			HAL_DFSDM_FilterRegularStop_DMA(&hdfsdm1_filter0);
 			isPlaying = 1;
 		}
 	}
@@ -219,7 +220,7 @@ int main(void)
 			  tempHasRec = 1;
 		  }
 
-		  if(tempHasRec == 1 && isPlaying == 1){
+		  if(tempHasRec == 1 && tempReading > 35){
 			  BSP_QSPI_Read(buffer.playByteBuf, baseAddrTempVals, BUFSIZE);
 			  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, buffer.playBuf, BUFSIZE, DAC_ALIGN_12B_R);
 			  isPlaying = 0;
@@ -241,14 +242,14 @@ int main(void)
 	  else if(sensType == 1){
 		  BSP_MAGNETO_GetXYZ(magneto);
 		  HAL_GPIO_WritePin(YLED_GPIO_Port, YLED_Pin, GPIO_PIN_RESET);
-		  if(read == 1 && gyroHasRec == 0){
+		  if(read == 1 && magnetoHasRec == 0){
 			  HAL_GPIO_WritePin(GREENLED_GPIO_Port, GREENLED_Pin, GPIO_PIN_SET);
 			  HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, recBufs.recBuf, sizeof(recBufs.recBuf));
 			  read = 0;
-			  gyroHasRec = 1;
+			  magnetoHasRec = 1;
 		  }
-		  if((gyroHasRec == 1) && (isPlaying == 1)){
-			  BSP_QSPI_Read(buffer.playByteBuf, baseAddrGyroVals, BUFSIZE);
+		  if((magnetoHasRec == 1) && (magneto > 0)){
+			  BSP_QSPI_Read(buffer.playByteBuf, baseAddrmagnetoVals, BUFSIZE);
 			  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, buffer.playBuf, BUFSIZE, DAC_ALIGN_12B_R);
 			  isPlaying = 0;
 		  }
@@ -259,7 +260,7 @@ int main(void)
 			  FullBufferOperations(recBufs.recBuf, buffer.playBuf, BUFSIZE);
 			  HAL_Delay(10);
 			  dmaRecBuffCplt = 0;
-			  BSP_QSPI_Write(buffer.playByteBuf, baseAddrGyroVals, BUFSIZE);
+			  BSP_QSPI_Write(buffer.playByteBuf, baseAddrmagnetoVals, BUFSIZE);
 			  HAL_Delay(100);
 			  for (int i = 0; i < BUFSIZE; i++){
 				  buffer.playBuf[i] = 0;
