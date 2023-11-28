@@ -67,6 +67,11 @@ void Error_Handler(void);
 #define CHANNELBUT_Pin GPIO_PIN_14
 #define CHANNELBUT_GPIO_Port GPIOD
 #define CHANNELBUT_EXTI_IRQn EXTI15_10_IRQn
+#define TempSens_Pin GPIO_PIN_15
+#define TempSens_GPIO_Port GPIOD
+#define TempSens_EXTI_IRQn EXTI15_10_IRQn
+#define MagnetSens_Pin GPIO_PIN_8
+#define MagnetSens_GPIO_Port GPIOC
 
 /* USER CODE BEGIN Private defines */
 
